@@ -24,37 +24,71 @@ Before using the admin upload interface, you need to create two storage buckets 
 
 ## Bucket Policies
 
-For each bucket, set the following policies (Storage → Policies):
+**IMPORTANT:** You need to apply policies to EACH bucket separately. Apply these policies twice - once for `podcast-audio` and once for `podcast-covers`.
 
-### Public Read Policy
+### For `podcast-audio` Bucket
+
+Go to Storage → `podcast-audio` → Policies → New Policy
+
+**1. Public Read Policy**
 ```sql
--- Allow public read access
 CREATE POLICY "Public read access"
 ON storage.objects FOR SELECT
-USING (bucket_id = 'podcast-audio' OR bucket_id = 'podcast-covers');
+USING (bucket_id = 'podcast-audio');
 ```
 
-### Authenticated Upload Policy
+**2. Authenticated Upload Policy**
 ```sql
--- Allow authenticated users to upload
 CREATE POLICY "Authenticated users can upload"
 ON storage.objects FOR INSERT
-WITH CHECK (bucket_id = 'podcast-audio' OR bucket_id = 'podcast-covers');
+WITH CHECK (bucket_id = 'podcast-audio');
 ```
 
-### Authenticated Delete Policy (optional)
+**3. Authenticated Delete Policy (optional)**
 ```sql
--- Allow authenticated users to delete their uploads
 CREATE POLICY "Authenticated users can delete"
 ON storage.objects FOR DELETE
-USING (bucket_id = 'podcast-audio' OR bucket_id = 'podcast-covers');
+USING (bucket_id = 'podcast-audio');
+```
+
+### For `podcast-covers` Bucket
+
+Go to Storage → `podcast-covers` → Policies → New Policy
+
+**1. Public Read Policy**
+```sql
+CREATE POLICY "Public read access"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'podcast-covers');
+```
+
+**2. Authenticated Upload Policy**
+```sql
+CREATE POLICY "Authenticated users can upload"
+ON storage.objects FOR INSERT
+WITH CHECK (bucket_id = 'podcast-covers');
+```
+
+**3. Authenticated Delete Policy (optional)**
+```sql
+CREATE POLICY "Authenticated users can delete"
+ON storage.objects FOR DELETE
+USING (bucket_id = 'podcast-covers');
 ```
 
 ## Verification
 
-After setup, verify the buckets exist:
+After setup, verify everything is configured correctly:
+
 1. Go to Storage in Supabase Dashboard
 2. You should see `podcast-audio` and `podcast-covers` listed
 3. Both should show as "Public"
+4. Click on each bucket and go to Policies tab
+5. Each bucket should have 3 policies (or 2 if you skipped delete):
+   - ✓ Public read access
+   - ✓ Authenticated users can upload
+   - ✓ Authenticated users can delete (optional)
 
-Once complete, you can use the admin upload interface at `/admin` in your app.
+**If `podcast-covers` has no policies**, go back and apply the policies specifically to that bucket following the instructions above.
+
+Once complete, you can use the admin upload interface at `/#/admin` in your app.
