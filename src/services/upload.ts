@@ -1,6 +1,43 @@
 import { supabase } from "../lib/supabaseClient";
 import { TranscriptWord } from "./episodes";
 
+/**
+ * Test if storage buckets are accessible
+ */
+export async function testStorageAccess(): Promise<{
+  audioAccess: boolean;
+  coverAccess: boolean;
+  errors: string[];
+}> {
+  const errors: string[] = [];
+
+  // Test podcast-audio bucket
+  const { data: audioData, error: audioError } = await supabase.storage
+    .from("podcast-audio")
+    .list("", { limit: 1 });
+
+  if (audioError) {
+    errors.push(`Audio bucket error: ${audioError.message}`);
+    console.error("Audio bucket test failed:", audioError);
+  }
+
+  // Test podcast-covers bucket
+  const { data: coverData, error: coverError } = await supabase.storage
+    .from("podcast-covers")
+    .list("", { limit: 1 });
+
+  if (coverError) {
+    errors.push(`Cover bucket error: ${coverError.message}`);
+    console.error("Cover bucket test failed:", coverError);
+  }
+
+  return {
+    audioAccess: !audioError,
+    coverAccess: !coverError,
+    errors,
+  };
+}
+
 export interface UploadEpisodeData {
   title: string;
   source: string;
@@ -25,6 +62,8 @@ export async function uploadFile(
   const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
   const filePath = path || `${timestamp}-${sanitizedName}`;
 
+  console.log('Attempting to upload to bucket:', bucket, 'file:', file.name);
+
   const { data, error } = await supabase.storage
     .from(bucket)
     .upload(filePath, file, {
@@ -33,7 +72,13 @@ export async function uploadFile(
     });
 
   if (error) {
-    throw new Error(`Failed to upload file: ${error.message}`);
+    console.error('Upload error - Full details:', {
+      error,
+      message: error.message,
+      statusCode: error.statusCode,
+      errorName: error.name,
+    });
+    throw new Error(`Failed to upload file: ${error.message || JSON.stringify(error)}`);
   }
 
   // Get public URL
@@ -41,6 +86,7 @@ export async function uploadFile(
     data: { publicUrl },
   } = supabase.storage.from(bucket).getPublicUrl(data.path);
 
+  console.log('Upload successful, public URL:', publicUrl);
   return publicUrl;
 }
 

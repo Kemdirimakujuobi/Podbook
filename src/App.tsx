@@ -3,9 +3,10 @@ import { motion } from 'framer-motion';
 import svgPaths from "./imports/svg-eo6gzb6faz";
 import imgImage33 from "figma:asset/fc08b86159a859fa7cb161330ecdb9059ec30392.png";
 import { imgEllipse1 } from "./imports/svg-emt2f";
+import { fetchEpisodes, Episode, TranscriptWord } from './services/episodes';
 
-// Waveform data - heights for each bar
-const waveformData = [
+// Default waveform if episode doesn't have one
+const defaultWaveformData = [
   8, 14, 42, 53, 29, 38, 53, 38, 38, 20, 43, 26, 54, 16, 7, 19, 46, 37, 49, 37, 4, 38, 30, 25, 24, 29, 48, 36, 11, 12,
   21, 54, 30, 28, 31, 41, 24, 1, 43, 3, 23, 45, 18, 15, 30, 10, 48, 54, 15, 34, 14, 33, 1, 34, 35, 18, 3, 27, 34, 30,
   14, 39, 14, 52, 32, 12, 1, 23, 13, 37, 47, 32, 31, 27, 9, 20, 6, 47, 18, 11, 13, 42, 23, 15, 23, 3, 24, 7, 1, 35, 49,
@@ -17,14 +18,8 @@ const waveformData = [
   25, 53, 5, 7, 16, 6, 52, 1, 27, 53, 53, 1, 7, 46, 35, 9, 53, 19, 27, 48, 14, 45, 54, 40, 10, 20, 19, 33
 ];
 
-// Mock transcript data with timing
-interface TranscriptWord {
-  word: string;
-  startTime: number;
-  endTime: number;
-}
-
-const transcriptData: TranscriptWord[] = [
+// Default transcript if episode doesn't have one
+const defaultTranscriptData: TranscriptWord[] = [
   // Fast natural speech - multiple words per second
   { word: "Discover", startTime: 0, endTime: 0.4 },
   { word: "the", startTime: 0.4, endTime: 0.5 },
@@ -221,34 +216,48 @@ function PlayButton({ isPlaying, onToggle }: PlayButtonProps) {
 interface CoverArtProps {
   isPlaying: boolean;
   onToggle: () => void;
+  coverUrl: string;
 }
 
-function CoverArt({ isPlaying, onToggle }: CoverArtProps) {
+function CoverArt({ isPlaying, onToggle, coverUrl }: CoverArtProps) {
   return (
     <div className="bg-[#a259b9] overflow-clip relative rounded-[8px] shadow-[0px_12px_28px_-8px_rgba(33,25,23,0.6),0px_2px_4px_-1px_rgba(1,19,69,0.04),0px_1px_2px_0px_rgba(1,19,69,0.11),0px_0px_0px_1px_rgba(1,19,69,0.06)] shrink-0 size-[252px]" data-name="Cover Art">
       <div className="absolute h-[252px] left-1/2 top-1/2 translate-x-[-50%] translate-y-[-50%] w-[480px]" data-name="image 33">
-        <img alt="" className="absolute inset-0 max-w-none object-50%-50% object-cover pointer-events-none size-full" src={imgImage33} />
+        <img alt="" className="absolute inset-0 max-w-none object-50%-50% object-cover pointer-events-none size-full" src={coverUrl || imgImage33} />
       </div>
       <PlayButton isPlaying={isPlaying} onToggle={onToggle} />
     </div>
   );
 }
 
-function SubContainer() {
+interface SubContainerProps {
+  source: string;
+  publishedAt: string;
+}
+
+function SubContainer({ source, publishedAt }: SubContainerProps) {
+  const formattedDate = publishedAt ? new Date(publishedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+
   return (
     <div className="content-stretch flex font-['Inter:Regular',sans-serif] font-normal gap-[4px] items-center leading-[20px] not-italic relative shrink-0 text-[#747580] text-[14px] text-nowrap whitespace-pre" data-name="Sub Container">
-      <a href="#" className="relative shrink-0 underline hover:text-[#231a18] transition-colors">Offrange</a>
+      <a href="#" className="relative shrink-0 underline hover:text-[#231a18] transition-colors">{source || 'Podcast'}</a>
       <p className="relative shrink-0">·</p>
-      <p className="relative shrink-0">Oct 18, 2023</p>
+      <p className="relative shrink-0">{formattedDate}</p>
     </div>
   );
 }
 
-function TitleMockup() {
+interface TitleMockupProps {
+  title: string;
+  source: string;
+  publishedAt: string;
+}
+
+function TitleMockup({ title, source, publishedAt }: TitleMockupProps) {
   return (
     <div className="content-stretch flex flex-col gap-[8px] items-start relative shrink-0 w-[278px]" data-name="Title Mockup">
-      <p className="font-['Inter_Display:SemiBold',sans-serif] leading-[24px] min-w-full not-italic relative shrink-0 text-[#231a18] text-[18px] w-[min-content]">Where Soil is Holy, and Climate Change Is Seldom Mentioned</p>
-      <SubContainer />
+      <p className="font-['Inter_Display:SemiBold',sans-serif] leading-[24px] min-w-full not-italic relative shrink-0 text-[#231a18] text-[18px] w-[min-content]">{title}</p>
+      <SubContainer source={source} publishedAt={publishedAt} />
     </div>
   );
 }
@@ -256,13 +265,18 @@ function TitleMockup() {
 interface MetaLockupProps {
   isPlaying: boolean;
   onToggle: () => void;
+  episode: Episode | null;
 }
 
-function MetaLockup({ isPlaying, onToggle }: MetaLockupProps) {
+function MetaLockup({ isPlaying, onToggle, episode }: MetaLockupProps) {
   return (
     <div className="basis-0 content-stretch flex gap-[24px] grow items-start min-h-px min-w-px relative shrink-0" data-name="Meta Lockup">
-      <CoverArt isPlaying={isPlaying} onToggle={onToggle} />
-      <TitleMockup />
+      <CoverArt isPlaying={isPlaying} onToggle={onToggle} coverUrl={episode?.cover_url || ''} />
+      <TitleMockup
+        title={episode?.title || 'Loading...'}
+        source={episode?.source || ''}
+        publishedAt={episode?.published_at || ''}
+      />
     </div>
   );
 }
@@ -270,14 +284,15 @@ function MetaLockup({ isPlaying, onToggle }: MetaLockupProps) {
 interface Frame2Props {
   isPlaying: boolean;
   onToggle: () => void;
+  episode: Episode | null;
 }
 
-function Frame2({ isPlaying, onToggle }: Frame2Props) {
+function Frame2({ isPlaying, onToggle, episode }: Frame2Props) {
   return (
     <div className="basis-0 grow max-w-[650px] min-h-px min-w-px relative shrink-0 w-full">
       <div className="overflow-clip rounded-[inherit] size-full">
         <div className="box-border content-stretch flex gap-[8px] items-start max-w-inherit px-[40px] py-0 relative size-full">
-          <MetaLockup isPlaying={isPlaying} onToggle={onToggle} />
+          <MetaLockup isPlaying={isPlaying} onToggle={onToggle} episode={episode} />
         </div>
       </div>
     </div>
@@ -291,9 +306,10 @@ interface FrameProps {
   hoverBar: number | null;
   onHover: (index: number | null) => void;
   isDragging: boolean;
+  waveformData: number[];
 }
 
-function Frame({ playedBars, onBarClick, onDrag, hoverBar, onHover, isDragging }: FrameProps) {
+function Frame({ playedBars, onBarClick, onDrag, hoverBar, onHover, isDragging, waveformData }: FrameProps) {
   const handleMouseDown = (index: number) => {
     onBarClick(index);
   };
@@ -347,7 +363,7 @@ interface MaskGroup1Props extends MaskGroupProps, FrameProps {
   duration: number;
 }
 
-function MaskGroup1({ progress, playedBars, onBarClick, onDrag, hoverBar, onHover, isDragging, currentTime, duration }: MaskGroup1Props) {
+function MaskGroup1({ progress, playedBars, onBarClick, onDrag, hoverBar, onHover, isDragging, currentTime, duration, waveformData }: MaskGroup1Props) {
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; time: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -372,7 +388,7 @@ function MaskGroup1({ progress, playedBars, onBarClick, onDrag, hoverBar, onHove
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
     >
-      <Frame playedBars={playedBars} onBarClick={onBarClick} onDrag={onDrag} hoverBar={hoverBar} onHover={onHover} isDragging={isDragging} />
+      <Frame playedBars={playedBars} onBarClick={onBarClick} onDrag={onDrag} hoverBar={hoverBar} onHover={onHover} isDragging={isDragging} waveformData={waveformData} />
       
       {/* Tooltip - TrackerOnHover from Figma */}
       {tooltipPosition && (
@@ -395,21 +411,22 @@ interface ScrubberProps extends MaskGroupProps, FrameProps {
   duration: number;
 }
 
-function Scrubber({ progress, playedBars, onBarClick, onDrag, hoverBar, onHover, isDragging, currentTime, duration }: ScrubberProps) {
+function Scrubber({ progress, playedBars, onBarClick, onDrag, hoverBar, onHover, isDragging, currentTime, duration, waveformData }: ScrubberProps) {
   return (
     <div className="max-w-[650px] relative shrink-0 w-full" data-name="Scrubber">
       <div className="overflow-clip rounded-[inherit] size-full">
         <div className="box-border content-stretch flex items-start max-w-inherit px-[40px] py-0 relative w-full">
-          <MaskGroup1 
-            progress={progress} 
-            playedBars={playedBars} 
-            onBarClick={onBarClick} 
-            onDrag={onDrag} 
-            hoverBar={hoverBar} 
-            onHover={onHover} 
+          <MaskGroup1
+            progress={progress}
+            playedBars={playedBars}
+            onBarClick={onBarClick}
+            onDrag={onDrag}
+            hoverBar={hoverBar}
+            onHover={onHover}
             isDragging={isDragging}
             currentTime={currentTime}
             duration={duration}
+            waveformData={waveformData}
           />
         </div>
       </div>
@@ -420,18 +437,19 @@ function Scrubber({ progress, playedBars, onBarClick, onDrag, hoverBar, onHover,
 interface TopSectionProps extends ScrubberProps {
   isPlaying: boolean;
   onToggle: () => void;
+  episode: Episode | null;
 }
 
-function TopSection({ isPlaying, onToggle, progress, playedBars, onBarClick, onDrag, hoverBar, onHover, isDragging, currentTime, duration }: TopSectionProps) {
+function TopSection({ isPlaying, onToggle, progress, playedBars, onBarClick, onDrag, hoverBar, onHover, isDragging, currentTime, duration, episode, waveformData }: TopSectionProps) {
   return (
     <div className="relative shrink-0 h-[434px] w-full" data-name="Top section">
       <div className="flex flex-col items-center overflow-clip rounded-[inherit] size-full">
         <div className="box-border content-stretch flex flex-col gap-[8px] items-center pb-0 pt-[8px] px-[414px] relative size-full">
           <HeaderContainsLogoOfSource />
-          <Frame2 isPlaying={isPlaying} onToggle={onToggle} />
-          <Scrubber 
-            progress={progress} 
-            playedBars={playedBars} 
+          <Frame2 isPlaying={isPlaying} onToggle={onToggle} episode={episode} />
+          <Scrubber
+            progress={progress}
+            playedBars={playedBars}
             onBarClick={onBarClick}
             onDrag={onDrag}
             hoverBar={hoverBar}
@@ -439,6 +457,7 @@ function TopSection({ isPlaying, onToggle, progress, playedBars, onBarClick, onD
             isDragging={isDragging}
             currentTime={currentTime}
             duration={duration}
+            waveformData={waveformData}
           />
         </div>
       </div>
@@ -449,9 +468,10 @@ function TopSection({ isPlaying, onToggle, progress, playedBars, onBarClick, onD
 interface TranscriptProps {
   currentTime: number;
   duration: number;
+  transcriptData: TranscriptWord[];
 }
 
-function Transcript({ currentTime, duration }: TranscriptProps) {
+function Transcript({ currentTime, duration, transcriptData }: TranscriptProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const activeWordRef = useRef<HTMLSpanElement>(null);
 
@@ -513,9 +533,10 @@ function Transcript({ currentTime, duration }: TranscriptProps) {
 interface BottomSectionProps {
   currentTime: number;
   duration: number;
+  transcriptData: TranscriptWord[];
 }
 
-function BottomSection({ currentTime, duration }: BottomSectionProps) {
+function BottomSection({ currentTime, duration, transcriptData }: BottomSectionProps) {
   return (
     <div className="flex-1 bg-white box-border content-stretch flex flex-col gap-[32px] items-center overflow-clip px-[414px] py-[8px] shadow-[0px_2px_4px_-1px_rgba(1,19,69,0.04),0px_1px_2px_0px_rgba(1,19,69,0.11),0px_0px_0px_1px_rgba(1,19,69,0.06)] w-full relative" data-name="Bottom Section">
       {/* Playtime */}
@@ -530,19 +551,21 @@ function BottomSection({ currentTime, duration }: BottomSectionProps) {
       
       {/* Frame3 - Transcript Container */}
       <div className="content-stretch flex flex-col gap-[8px] items-center justify-center max-w-[650px] relative shrink-0 w-full">
-        <Transcript currentTime={currentTime} duration={duration} />
+        <Transcript currentTime={currentTime} duration={duration} transcriptData={transcriptData} />
       </div>
     </div>
   );
 }
 
-interface Frame1Props extends TopSectionProps {}
+interface Frame1Props extends TopSectionProps {
+  transcriptData: TranscriptWord[];
+}
 
-function Frame1({ isPlaying, onToggle, progress, playedBars, onBarClick, onDrag, hoverBar, onHover, isDragging, currentTime, duration }: Frame1Props) {
+function Frame1({ isPlaying, onToggle, progress, playedBars, onBarClick, onDrag, hoverBar, onHover, isDragging, currentTime, duration, episode, waveformData, transcriptData }: Frame1Props) {
   return (
     <div className="absolute content-stretch flex flex-col items-start inset-0">
-      <TopSection 
-        isPlaying={isPlaying} 
+      <TopSection
+        isPlaying={isPlaying}
         onToggle={onToggle}
         progress={progress}
         playedBars={playedBars}
@@ -553,26 +576,51 @@ function Frame1({ isPlaying, onToggle, progress, playedBars, onBarClick, onDrag,
         isDragging={isDragging}
         currentTime={currentTime}
         duration={duration}
+        episode={episode}
+        waveformData={waveformData}
       />
-      <BottomSection currentTime={currentTime} duration={duration} />
+      <BottomSection currentTime={currentTime} duration={duration} transcriptData={transcriptData} />
     </div>
   );
 }
 
 export default function App() {
+  const [episodes, setEpisodes] = useState<Episode[]>([]);
+  const [currentEpisode, setCurrentEpisode] = useState<Episode | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(82); // 82 seconds = ~1:22
-  const [duration] = useState(245); // Total duration in seconds
+  const [currentTime, setCurrentTime] = useState(0);
   const [backgroundColor, setBackgroundColor] = useState('#fefcfc');
   const [hoverBar, setHoverBar] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  // Fetch episodes from Supabase
+  useEffect(() => {
+    async function loadEpisodes() {
+      try {
+        const data = await fetchEpisodes();
+        setEpisodes(data);
+        if (data.length > 0) {
+          setCurrentEpisode(data[0]);
+        }
+      } catch (error) {
+        console.error('Failed to load episodes:', error);
+      }
+    }
+    loadEpisodes();
+  }, []);
+
+  const duration = currentEpisode?.duration_seconds || 245;
+  const waveformData = currentEpisode?.waveform || defaultWaveformData;
+  const transcriptData = currentEpisode?.transcript || defaultTranscriptData;
 
   // Extract dominant color from cover image
   useEffect(() => {
+    const coverUrl = currentEpisode?.cover_url || imgImage33;
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.src = imgImage33;
+    img.src = coverUrl;
     
     img.onload = () => {
       const canvas = canvasRef.current;
@@ -631,24 +679,56 @@ export default function App() {
         console.log('Using default background');
       }
     };
-  }, []);
+  }, [currentEpisode]);
 
-  // Simulate audio playback
+  // Set audio source when episode changes
   useEffect(() => {
-    if (!isPlaying) return;
-    
-    const interval = setInterval(() => {
-      setCurrentTime(prev => {
-        if (prev >= duration) {
-          setIsPlaying(false);
-          return duration;
-        }
-        return prev + 1;
+    const audio = audioRef.current;
+    if (!audio || !currentEpisode?.audio_url) return;
+
+    audio.src = currentEpisode.audio_url;
+    audio.load();
+    setCurrentTime(0);
+    setIsPlaying(false);
+  }, [currentEpisode]);
+
+  // Handle play/pause
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (isPlaying) {
+      audio.play().catch(err => {
+        console.error('Playback failed:', err);
+        setIsPlaying(false);
       });
-    }, 1000);
-    
-    return () => clearInterval(interval);
-  }, [isPlaying, duration]);
+    } else {
+      audio.pause();
+    }
+  }, [isPlaying]);
+
+  // Sync currentTime with audio
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const updateTime = () => {
+      setCurrentTime(audio.currentTime);
+    };
+
+    const handleEnded = () => {
+      setIsPlaying(false);
+      setCurrentTime(0);
+    };
+
+    audio.addEventListener('timeupdate', updateTime);
+    audio.addEventListener('ended', handleEnded);
+
+    return () => {
+      audio.removeEventListener('timeupdate', updateTime);
+      audio.removeEventListener('ended', handleEnded);
+    };
+  }, []);
 
   // Handle dragging globally
   useEffect(() => {
@@ -671,11 +751,17 @@ export default function App() {
     setIsDragging(true);
     const newTime = (index / waveformData.length) * duration;
     setCurrentTime(newTime);
+    if (audioRef.current) {
+      audioRef.current.currentTime = newTime;
+    }
   };
 
   const handleDrag = (index: number) => {
     const newTime = (index / waveformData.length) * duration;
     setCurrentTime(newTime);
+    if (audioRef.current) {
+      audioRef.current.currentTime = newTime;
+    }
   };
 
   const handleHover = (index: number | null) => {
@@ -686,15 +772,18 @@ export default function App() {
   const playedBars = Math.floor(progress * waveformData.length);
 
   return (
-    <div 
-      className="bg-[#fefcfc] overflow-clip relative rounded-[24px] shadow-[0px_72px_128px_0px_rgba(0,0,0,0.06),0px_32px_56px_0px_rgba(0,0,0,0.04),0px_16px_30px_0px_rgba(0,0,0,0.04),0px_9px_16px_0px_rgba(0,0,0,0.03),0px_2px_4px_0px_rgba(0,0,0,0.02),0px_4px_8px_0px_rgba(0,0,0,0.02),0px_0px_0px_1px_rgba(0,0,0,0.08)] size-full" 
+    <div
+      className="bg-[#fefcfc] overflow-clip relative rounded-[24px] shadow-[0px_72px_128px_0px_rgba(0,0,0,0.06),0px_32px_56px_0px_rgba(0,0,0,0.04),0px_16px_30px_0px_rgba(0,0,0,0.04),0px_9px_16px_0px_rgba(0,0,0,0.03),0px_2px_4px_0px_rgba(0,0,0,0.02),0px_4px_8px_0px_rgba(0,0,0,0.02),0px_0px_0px_1px_rgba(0,0,0,0.08)] size-full"
       data-name="Playing"
       style={{ backgroundColor }}
     >
       {/* Hidden canvas for color extraction */}
       <canvas ref={canvasRef} className="hidden" />
-      
-      <Frame1 
+
+      {/* Hidden audio element for playback */}
+      <audio ref={audioRef} className="hidden" />
+
+      <Frame1
         isPlaying={isPlaying}
         onToggle={togglePlayPause}
         progress={progress}
@@ -706,6 +795,9 @@ export default function App() {
         isDragging={isDragging}
         currentTime={currentTime}
         duration={duration}
+        episode={currentEpisode}
+        waveformData={waveformData}
+        transcriptData={transcriptData}
       />
     </div>
   );

@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabaseClient";
+import { normalizeTranscript } from "../utils/transcriptConverter";
 
 export interface TranscriptWord {
   word: string;
@@ -30,7 +31,11 @@ export async function fetchEpisodes() {
     throw error;
   }
 
-  return data as Episode[];
+  // Normalize transcripts to word-level format
+  return data.map(episode => ({
+    ...episode,
+    transcript: episode.transcript ? normalizeTranscript(episode.transcript) : null
+  })) as Episode[];
 }
 
 export async function fetchEpisodeById(id: string) {
@@ -44,5 +49,11 @@ export async function fetchEpisodeById(id: string) {
     throw error;
   }
 
-  return data as Episode | null;
+  if (!data) return null;
+
+  // Normalize transcript to word-level format
+  return {
+    ...data,
+    transcript: data.transcript ? normalizeTranscript(data.transcript) : null
+  } as Episode;
 }

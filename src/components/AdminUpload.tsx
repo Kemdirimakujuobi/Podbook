@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createEpisode, getAudioDuration } from "../services/upload";
+import { createEpisode, getAudioDuration, testStorageAccess } from "../services/upload";
 import { generateWaveform, generateMockWaveform } from "../utils/waveform";
 import { TranscriptWord } from "../services/episodes";
 
@@ -20,6 +20,27 @@ export function AdminUpload() {
   const [progress, setProgress] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [testing, setTesting] = useState(false);
+
+  const handleTestStorage = async () => {
+    setTesting(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const result = await testStorageAccess();
+
+      if (result.audioAccess && result.coverAccess) {
+        setSuccess("✓ Storage buckets are accessible and configured correctly!");
+      } else {
+        setError(`Storage test failed:\n${result.errors.join("\n")}`);
+      }
+    } catch (err) {
+      setError(`Storage test error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setTesting(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,13 +71,14 @@ export function AdminUpload() {
         : await generateWaveform(audioFile);
 
       // Parse transcript
-      let transcript: TranscriptWord[] = [];
+      let transcript: any = null;
       if (transcriptText.trim()) {
         try {
           transcript = JSON.parse(transcriptText);
-          // Validate transcript structure
-          if (!Array.isArray(transcript)) {
-            throw new Error("Transcript must be an array");
+          // Accept both array format (word-level) and object format (paragraph-level)
+          // The normalizeTranscript function will handle conversion
+          if (!transcript || (typeof transcript !== 'object')) {
+            throw new Error("Invalid transcript format");
           }
         } catch (err) {
           throw new Error("Invalid transcript JSON format");
@@ -99,11 +121,49 @@ export function AdminUpload() {
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
         <div className="bg-white shadow-lg rounded-lg p-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-8">
-            Upload New Episode
-          </h1>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
+            <h1 style={{ fontSize: "30px", fontWeight: "bold", margin: 0 }}>
+              Upload New Episode
+            </h1>
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button
+                type="button"
+                onClick={handleTestStorage}
+                disabled={testing}
+                style={{
+                  backgroundColor: testing ? "#9CA3AF" : "#10B981",
+                  color: "white",
+                  padding: "10px 24px",
+                  borderRadius: "6px",
+                  border: "none",
+                  fontWeight: "500",
+                  cursor: testing ? "not-allowed" : "pointer",
+                  fontSize: "16px"
+                }}
+              >
+                {testing ? "Testing..." : "Test Storage"}
+              </button>
+              <button
+                type="submit"
+                form="upload-form"
+                disabled={uploading}
+                style={{
+                  backgroundColor: uploading ? "#9CA3AF" : "#2563EB",
+                  color: "white",
+                  padding: "10px 24px",
+                  borderRadius: "6px",
+                  border: "none",
+                  fontWeight: "500",
+                  cursor: uploading ? "not-allowed" : "pointer",
+                  fontSize: "16px"
+                }}
+              >
+                {uploading ? "Uploading..." : "Upload Episode"}
+              </button>
+            </div>
+          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form id="upload-form" onSubmit={handleSubmit} className="space-y-6">
             {/* Title */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -236,7 +296,7 @@ export function AdminUpload() {
                 placeholder='[{"word": "Hello", "startTime": 0, "endTime": 0.5}]'
               />
               <p className="mt-2 text-xs text-gray-500">
-                Format: Array of objects with word, startTime, and endTime
+                Word-level: [&#123;"word": "Hello", "startTime": 0, "endTime": 0.5&#125;] or Paragraph-level: &#123;"blocks": [&#123;"type": "paragraph", "timestamp": "00:00:00", "text": "..."&#125;]&#125;
               </p>
             </div>
 
@@ -262,13 +322,15 @@ export function AdminUpload() {
             )}
 
             {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={uploading}
-              className="w-full bg-blue-600 text-white py-3 px-6 rounded-md font-medium hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-            >
-              {uploading ? "Uploading..." : "Upload Episode"}
-            </button>
+            <div className="sticky bottom-0 bg-white pt-4 pb-4 -mx-8 px-8 border-t border-gray-200">
+              <button
+                type="submit"
+                disabled={uploading}
+                className="w-full bg-blue-600 text-white py-3 px-6 rounded-md font-medium hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors shadow-lg"
+              >
+                {uploading ? "Uploading..." : "Upload Episode"}
+              </button>
+            </div>
           </form>
         </div>
       </div>
