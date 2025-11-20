@@ -32,21 +32,21 @@ Go to Storage → `podcast-audio` → Policies → New Policy
 
 **1. Public Read Policy**
 ```sql
-CREATE POLICY "Public read access"
+CREATE POLICY "podcast-audio: public read"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'podcast-audio');
 ```
 
 **2. Authenticated Upload Policy**
 ```sql
-CREATE POLICY "Authenticated users can upload"
+CREATE POLICY "podcast-audio: authenticated upload"
 ON storage.objects FOR INSERT
 WITH CHECK (bucket_id = 'podcast-audio');
 ```
 
 **3. Authenticated Delete Policy (optional)**
 ```sql
-CREATE POLICY "Authenticated users can delete"
+CREATE POLICY "podcast-audio: authenticated delete"
 ON storage.objects FOR DELETE
 USING (bucket_id = 'podcast-audio');
 ```
@@ -57,21 +57,21 @@ Go to Storage → `podcast-covers` → Policies → New Policy
 
 **1. Public Read Policy**
 ```sql
-CREATE POLICY "Public read access"
+CREATE POLICY "podcast-covers: public read"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'podcast-covers');
 ```
 
 **2. Authenticated Upload Policy**
 ```sql
-CREATE POLICY "Authenticated users can upload"
+CREATE POLICY "podcast-covers: authenticated upload"
 ON storage.objects FOR INSERT
 WITH CHECK (bucket_id = 'podcast-covers');
 ```
 
 **3. Authenticated Delete Policy (optional)**
 ```sql
-CREATE POLICY "Authenticated users can delete"
+CREATE POLICY "podcast-covers: authenticated delete"
 ON storage.objects FOR DELETE
 USING (bucket_id = 'podcast-covers');
 ```
@@ -83,12 +83,15 @@ After setup, verify everything is configured correctly:
 1. Go to Storage in Supabase Dashboard
 2. You should see `podcast-audio` and `podcast-covers` listed
 3. Both should show as "Public"
-4. Click on each bucket and go to Policies tab
-5. Each bucket should have 3 policies (or 2 if you skipped delete):
-   - ✓ Public read access
-   - ✓ Authenticated users can upload
-   - ✓ Authenticated users can delete (optional)
+4. Go to Storage → Policies (main policies page, not inside a bucket)
+5. You should see 6 policies total (or 4 if you skipped delete):
+   - ✓ podcast-audio: public read
+   - ✓ podcast-audio: authenticated upload
+   - ✓ podcast-audio: authenticated delete (optional)
+   - ✓ podcast-covers: public read
+   - ✓ podcast-covers: authenticated upload
+   - ✓ podcast-covers: authenticated delete (optional)
 
-**If `podcast-covers` has no policies**, go back and apply the policies specifically to that bucket following the instructions above.
+**Note:** Policy names must be unique across all buckets, which is why we prefix them with the bucket name.
 
 Once complete, you can use the admin upload interface at `/#/admin` in your app.
