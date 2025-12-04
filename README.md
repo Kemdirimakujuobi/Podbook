@@ -1,7 +1,7 @@
 
   # Podcast Player Design
 
-  This is a code bundle for Podcast Player Design. The original project is available at https://www.figma.com/design/MMNQdQKm1YFJgHYQhHrbGU/Podcast-Player-Design.
+  This is a code bundle for Podcast Player Design. Visit https://podbook-mshl.vercel.app/ to interact with the project. 
 
   ## Running the code
 
